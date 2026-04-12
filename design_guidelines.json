@@ -1,0 +1,97 @@
+{
+  "theme": "dark",
+  "archetype": "Jewel & Luxury adapted for Dating",
+  "mood": "Cinematic, intimate, premium, and warm",
+  "colors": {
+    "background": "#0D0D12",
+    "surface": "#1C1C24",
+    "surfaceElevated": "#2A2A35",
+    "primary": "#FF5F6D",
+    "primaryGradient": ["#FF5F6D", "#FFC371"],
+    "secondary": "#FFC371",
+    "text": {
+      "primary": "#FDFDFD",
+      "secondary": "#A0A0AB",
+      "disabled": "#636370"
+    },
+    "border": "#32323D",
+    "error": "#FF3B30",
+    "success": "#34C759",
+    "premium": "#E5B05C"
+  },
+  "typography": {
+    "fontFamilyPrimary": "System",
+    "heading1": { "fontSize": 36, "fontWeight": "800", "letterSpacing": -1, "color": "#FDFDFD" },
+    "heading2": { "fontSize": 28, "fontWeight": "700", "letterSpacing": -0.5, "color": "#FDFDFD" },
+    "heading3": { "fontSize": 22, "fontWeight": "600", "letterSpacing": 0, "color": "#FDFDFD" },
+    "body": { "fontSize": 16, "fontWeight": "400", "lineHeight": 24, "color": "#A0A0AB" },
+    "label": { "fontSize": 12, "fontWeight": "700", "letterSpacing": 1, "textTransform": "uppercase", "color": "#A0A0AB" }
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "xxl": 48,
+    "screenPadding": 24
+  },
+  "borderRadius": {
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "pill": 9999
+  },
+  "components": {
+    "Screen": "backgroundColor: #0D0D12, flex: 1",
+    "ButtonPrimary": "backgroundColor: #FF5F6D, height: 56, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', flexDirection: 'row'",
+    "ButtonSecondary": "backgroundColor: #2A2A35, height: 56, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', flexDirection: 'row'",
+    "ButtonText": "color: '#FDFDFD', fontSize: 16, fontWeight: '700'",
+    "Card": "backgroundColor: '#1C1C24', borderRadius: 24, padding: 24, overflow: 'hidden'",
+    "Input": "height: 56, backgroundColor: '#1C1C24', borderRadius: 16, paddingHorizontal: 16, color: '#FDFDFD', borderWidth: 1, borderColor: '#32323D'",
+    "BottomTab": "backgroundColor: '#0D0D12', borderTopWidth: 1, borderTopColor: '#1C1C24', height: 80, paddingBottom: 20",
+    "MatchCard": "flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: '#1C1C24', position: 'relative'",
+    "GradientOverlay": "position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%'"
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1688973168396-5a71ae6c5f64?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwxfHxhdHRyYWN0aXZlJTIwcGVyc29uJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc2MDE3OTYyfDA&ixlib=rb-4.1.0&q=85",
+      "category": "Match Profile Image 1",
+      "description": "Attractive woman portrait for match card"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1598547461182-45d03f6661e4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxhdHRyYWN0aXZlJTIwbWFuJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc2MDE3OTc0fDA&ixlib=rb-4.1.0&q=85",
+      "category": "Match Profile Image 2",
+      "description": "Attractive man portrait for match card"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1635098996122-2ee82456d11b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHw0fHxhdHRyYWN0aXZlJTIwcGVyc29uJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc2MDE3OTYyfDA&ixlib=rb-4.1.0&q=85",
+      "category": "Match Profile Image 3",
+      "description": "Attractive woman portrait for match card"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1561688961-7588856fe6ee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxhdHRyYWN0aXZlJTIwbWFuJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc2MDE3OTc0fDA&ixlib=rb-4.1.0&q=85",
+      "category": "Match Profile Image 4",
+      "description": "Attractive man portrait for match card"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1766907460644-a1a558a122d5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwxfHxncmFkaWVudCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NjAxNzk3NHww&ixlib=rb-4.1.0&q=85",
+      "category": "Premium Background",
+      "description": "Dark gradient background for Premium upgrade screens"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "CRITICAL: Use only React Native components (View, Text, TouchableOpacity, ScrollView, Image, TextInput).",
+    "CRITICAL: DO NOT use HTML tags (div, span) or Tailwind classes (className) anywhere in the application.",
+    "CRITICAL: Use StyleSheet.create() for all styling in every component.",
+    "CRITICAL: Add `testID` property to all interactive and key informational elements (e.g., testID='login-button').",
+    "Ensure touch targets are at least 48x48 points for mobile accessibility.",
+    "Implement a dark theme using the provided color palette. Do not use pure black (#000000) for large backgrounds, use #0D0D12.",
+    "For Match Cards, use absolute positioning for the gradient overlay at the bottom to ensure text readability over images. Use Expo LinearGradient if possible, or a View with a transparent-to-black background.",
+    "For the Questionnaire, use a prominent progress bar and large, selectable pill buttons for answers (use surfaceElevated for unselected, primary for selected).",
+    "Implement Premium Upgrade sections with subtle gold/warm coral accents and elevated cards.",
+    "Avoid borders unless strictly necessary; prefer surface color differentiation to create depth.",
+    "Use standard Expo icons (like @expo/vector-icons) for iconography."
+  ]
+}

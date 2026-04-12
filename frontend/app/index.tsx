@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 
 export default function Index() {
-  const router = useRouter();
-  const { user, loadUser, loading } = useAuthStore();
+  const { user, loadUser } = useAuthStore();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -13,27 +13,26 @@ export default function Index() {
 
   const checkAuth = async () => {
     await loadUser();
+    setIsReady(true);
   };
 
-  useEffect(() => {
-    if (!loading) {
-      if (user) {
-        if (!user.questionnaire_completed) {
-          router.replace('/questionnaire');
-        } else {
-          router.replace('/(tabs)/matches');
-        }
-      } else {
-        router.replace('/login');
-      }
-    }
-  }, [user, loading]);
+  if (!isReady) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+      </View>
+    );
+  }
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#FF6B6B" />
-    </View>
-  );
+  if (!user) {
+    return <Redirect href="/login" />;
+  }
+
+  if (!user.questionnaire_completed) {
+    return <Redirect href="/questionnaire" />;
+  }
+
+  return <Redirect href="/(tabs)/matches" />;
 }
 
 const styles = StyleSheet.create({
