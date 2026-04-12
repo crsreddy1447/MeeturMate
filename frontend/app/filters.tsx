@@ -1,189 +1,77 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Filters() {
   const router = useRouter();
-  const [selectedGenders, setSelectedGenders] = useState<string[]>(['male', 'female', 'other']);
-  const [ageRange, setAgeRange] = useState([18, 100]);
+  const insets = useSafeAreaInsets();
+  const [genders, setGenders] = useState(['male', 'female', 'other']);
 
-  const toggleGender = (gender: string) => {
-    if (selectedGenders.includes(gender)) {
-      setSelectedGenders(selectedGenders.filter((g) => g !== gender));
-    } else {
-      setSelectedGenders([...selectedGenders, gender]);
-    }
-  };
-
-  const applyFilters = () => {
-    // In a real app, this would apply the filters to the matches
-    router.back();
+  const toggle = (g: string) => {
+    setGenders(genders.includes(g) ? genders.filter((x) => x !== g) : [...genders, g]);
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+        <TouchableOpacity testID="filter-back" onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="close" size={24} color="#FDFDFD" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Filters</Text>
-        <TouchableOpacity onPress={applyFilters}>
+        <TouchableOpacity testID="filter-apply" onPress={() => router.back()}>
           <Text style={styles.applyText}>Apply</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gender</Text>
-          <View style={styles.options}>
-            {['male', 'female', 'other'].map((gender) => (
-              <TouchableOpacity
-                key={gender}
-                style={[
-                  styles.option,
-                  selectedGenders.includes(gender) && styles.optionSelected,
-                ]}
-                onPress={() => toggleGender(gender)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    selectedGenders.includes(gender) && styles.optionTextSelected,
-                  ]}
-                >
-                  {gender.charAt(0).toUpperCase() + gender.slice(1)}
-                </Text>
-                {selectedGenders.includes(gender) && (
-                  <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+      <ScrollView style={styles.body}>
+        <Text style={styles.sectionLabel}>GENDER</Text>
+        <View style={styles.pills}>
+          {['male', 'female', 'other'].map((g) => (
+            <TouchableOpacity testID={`filter-gender-${g}`} key={g} style={[styles.pill, genders.includes(g) && styles.pillActive]} onPress={() => toggle(g)}>
+              <Text style={[styles.pillText, genders.includes(g) && styles.pillTextActive]}>{g.charAt(0).toUpperCase() + g.slice(1)}</Text>
+              {genders.includes(g) && <Ionicons name="checkmark" size={18} color="#FF5F6D" />}
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Age Range</Text>
-          <View style={styles.rangeContainer}>
-            <Text style={styles.rangeText}>
-              {ageRange[0]} - {ageRange[1]} years
-            </Text>
-          </View>
-          <Text style={styles.hint}>Swipe or tap to adjust age range</Text>
+        <Text style={styles.sectionLabel}>AGE RANGE</Text>
+        <View style={styles.rangeCard}>
+          <Text style={styles.rangeValue}>18 - 100 years</Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <TouchableOpacity style={styles.locationOption}>
-            <Ionicons name="globe-outline" size={24} color="#fff" />
-            <Text style={styles.locationText}>Global</Text>
-            <Ionicons name="chevron-forward" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionLabel}>LOCATION</Text>
+        <TouchableOpacity style={styles.locOption} activeOpacity={0.7}>
+          <Ionicons name="globe-outline" size={22} color="#FDFDFD" />
+          <Text style={styles.locText}>Global</Text>
+          <View style={styles.activeDot} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.locOption} activeOpacity={0.7}>
+          <Ionicons name="location-outline" size={22} color="#A0A0AB" />
+          <Text style={[styles.locText, { color: '#A0A0AB' }]}>My Country</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 50,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  applyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF6B6B',
-  },
-  content: {
-    flex: 1,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  options: {
-    gap: 12,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#2a2a2a',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  optionSelected: {
-    borderColor: '#FF6B6B',
-    backgroundColor: '#2a2020',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#fff',
-  },
-  optionTextSelected: {
-    color: '#FF6B6B',
-    fontWeight: '600',
-  },
-  rangeContainer: {
-    backgroundColor: '#2a2a2a',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  rangeText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  locationOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    padding: 16,
-    borderRadius: 12,
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#fff',
-    marginLeft: 12,
-  },
+  container: { flex: 1, backgroundColor: '#0D0D12' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1C1C24' },
+  backBtn: { width: 44, height: 44, justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FDFDFD' },
+  applyText: { fontSize: 16, fontWeight: '700', color: '#FF5F6D' },
+  body: { padding: 24 },
+  sectionLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: '#636370', marginBottom: 12, marginTop: 24 },
+  pills: { gap: 10 },
+  pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1C1C24', padding: 18, borderRadius: 16, borderWidth: 1.5, borderColor: '#32323D' },
+  pillActive: { borderColor: '#FF5F6D', backgroundColor: '#1C1420' },
+  pillText: { fontSize: 16, color: '#A0A0AB', fontWeight: '500' },
+  pillTextActive: { color: '#FDFDFD', fontWeight: '600' },
+  rangeCard: { backgroundColor: '#1C1C24', padding: 24, borderRadius: 16, alignItems: 'center' },
+  rangeValue: { fontSize: 22, fontWeight: '700', color: '#FDFDFD' },
+  locOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1C24', padding: 18, borderRadius: 16, marginBottom: 10, gap: 12 },
+  locText: { flex: 1, fontSize: 16, color: '#FDFDFD', fontWeight: '500' },
+  activeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#34C759' },
 });

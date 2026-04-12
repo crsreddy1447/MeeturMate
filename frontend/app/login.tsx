@@ -20,13 +20,13 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
     try {
       setLoading(true);
       await login(email, password);
@@ -43,20 +43,24 @@ export default function Login() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Ionicons name="heart" size={60} color="#FF6B6B" />
-          <Text style={styles.title}>MeeturMate</Text>
-          <Text style={styles.subtitle}>Find Your Perfect Match</Text>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.hero}>
+          <View style={styles.logoCircle}>
+            <Ionicons name="heart" size={44} color="#FF5F6D" />
+          </View>
+          <Text style={styles.brand}>MeeturMate</Text>
+          <Text style={styles.tagline}>Where connections become stories</Text>
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#888" style={styles.icon} />
+          <Text style={styles.label}>EMAIL</Text>
+          <View style={styles.inputWrap}>
+            <Ionicons name="mail-outline" size={18} color="#636370" style={styles.inputIcon} />
             <TextInput
+              testID="login-email-input"
               style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#888"
+              placeholder="hello@example.com"
+              placeholderTextColor="#636370"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -64,31 +68,39 @@ export default function Login() {
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.icon} />
+          <Text style={styles.label}>PASSWORD</Text>
+          <View style={styles.inputWrap}>
+            <Ionicons name="lock-closed-outline" size={18} color="#636370" style={styles.inputIcon} />
             <TextInput
+              testID="login-password-input"
               style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#888"
+              placeholder="Your password"
+              placeholderTextColor="#636370"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
             />
+            <TouchableOpacity testID="toggle-password" onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#636370" />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            testID="login-submit-button"
+            style={[styles.primaryBtn, loading && styles.btnDisabled]}
             onPress={handleLogin}
             disabled={loading}
+            activeOpacity={0.8}
           >
-            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+            <Text style={styles.primaryBtnText}>{loading ? 'Signing in...' : 'Sign In'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.linkButton}
+            testID="go-to-register"
+            style={styles.secondaryBtn}
             onPress={() => router.push('/register')}
           >
-            <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+            <Text style={styles.secondaryBtnText}>Create an account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -97,72 +109,51 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  header: {
+  container: { flex: 1, backgroundColor: '#0D0D12' },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  hero: { alignItems: 'center', marginBottom: 48 },
+  logoCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#1C1C24',
     alignItems: 'center',
-    marginBottom: 48,
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 8,
-  },
-  form: {
-    width: '100%',
-  },
-  inputContainer: {
+  brand: { fontSize: 36, fontWeight: '800', color: '#FDFDFD', letterSpacing: -1 },
+  tagline: { fontSize: 16, color: '#A0A0AB', marginTop: 6 },
+  form: { width: '100%' },
+  label: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: '#A0A0AB', marginBottom: 8, marginTop: 16 },
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    marginBottom: 16,
+    height: 56,
+    backgroundColor: '#1C1C24',
+    borderRadius: 16,
     paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#32323D',
   },
-  icon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
+  inputIcon: { marginRight: 12 },
+  input: { flex: 1, color: '#FDFDFD', fontSize: 16 },
+  primaryBtn: {
     height: 56,
-    color: '#fff',
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#FF6B6B',
-    borderRadius: 12,
-    height: 56,
+    backgroundColor: '#FF5F6D',
+    borderRadius: 9999,
+    alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 32,
+  },
+  btnDisabled: { opacity: 0.5 },
+  primaryBtnText: { color: '#FDFDFD', fontSize: 16, fontWeight: '700' },
+  secondaryBtn: {
+    height: 56,
+    backgroundColor: '#2A2A35',
+    borderRadius: 9999,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 12,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  linkButton: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#FF6B6B',
-    fontSize: 16,
-  },
+  secondaryBtnText: { color: '#FDFDFD', fontSize: 16, fontWeight: '700' },
 });
