@@ -261,40 +261,54 @@ async def find_matches(filters: Optional[MatchFilters] = None, current_user: dic
         if filters.country:
             query["location"] = {"$regex": filters.country, "$options": "i"}
     
-    # Find potential matches
-    potential_matches = await db.users.find(query).to_list(100)
+    # Find potential matches (exclude password_hash)
+    potential_matches = await db.users.find(query, {"password_hash": 0}).to_list(100)
+    
+    # Batch fetch questionnaires for all potential matches
+    user_ids = [str(u["_id"]) for u in potential_matches]
+    questionnaires_cursor = db.questionnaires.find({"user_id": {"$in": user_ids}})
+    questionnaires_map = {q["user_id"]: q async for q in questionnaires_cursor}
+    
+    # Batch fetch existing matches
+    existing_matches_cursor = db.matches.find({
+        "$or": [
+            {"user1_id": current_user["_id"], "user2_id": {"$in": user_ids}},
+            {"user1_id": {"$in": user_ids}, "user2_id": current_user["_id"]}
+        ]
+    })
+    existing_matches_set = set()
+    async for m in existing_matches_cursor:
+        existing_matches_set.add((m["user1_id"], m["user2_id"]))
+        existing_matches_set.add((m["user2_id"], m["user1_id"]))
     
     # Calculate match scores
     matches = []
+    new_match_docs = []
     for user in potential_matches:
-        user_questionnaire = await db.questionnaires.find_one({"user_id": str(user["_id"])})
+        uid = str(user["_id"])
+        user_questionnaire = questionnaires_map.get(uid)
         
         score = calculate_match_score(
             current_questionnaire.get("responses", {}) if current_questionnaire else {},
             user_questionnaire.get("responses", {}) if user_questionnaire else {}
         )
         
-        # Check if match already exists
-        existing_match = await db.matches.find_one({
-            "$or": [
-                {"user1_id": current_user["_id"], "user2_id": str(user["_id"])},
-                {"user1_id": str(user["_id"]), "user2_id": current_user["_id"]}
-            ]
-        })
-        
-        if not existing_match and score >= 30:  # Minimum threshold
-            match_doc = {
+        # Check if match already exists using the batch-fetched set
+        if (current_user["_id"], uid) not in existing_matches_set and score >= 30:
+            new_match_docs.append({
                 "user1_id": current_user["_id"],
-                "user2_id": str(user["_id"]),
+                "user2_id": uid,
                 "match_score": score,
                 "created_at": datetime.utcnow()
-            }
-            await db.matches.insert_one(match_doc)
+            })
         
-        user["_id"] = str(user["_id"])
-        user.pop("password_hash", None)
+        user["_id"] = uid
         user["match_score"] = score
         matches.append(user)
+    
+    # Batch insert new matches
+    if new_match_docs:
+        await db.matches.insert_many(new_match_docs)
     
     # Sort by score
     matches.sort(key=lambda x: x["match_score"], reverse=True)
@@ -311,15 +325,27 @@ async def get_matches(current_user: dict = Depends(get_current_user)):
         ]
     }).sort("match_score", -1).to_list(100)
     
+    # Batch fetch all other users
+    other_user_ids = []
+    match_scores = {}
+    for match in matches:
+        other_id = match["user2_id"] if match["user1_id"] == current_user["_id"] else match["user1_id"]
+        other_user_ids.append(ObjectId(other_id))
+        match_scores[other_id] = match["match_score"]
+    
+    if not other_user_ids:
+        return {"matches": []}
+    
+    users_cursor = db.users.find({"_id": {"$in": other_user_ids}}, {"password_hash": 0})
+    users_map = {str(u["_id"]): u async for u in users_cursor}
+    
     match_list = []
     for match in matches:
-        other_user_id = match["user2_id"] if match["user1_id"] == current_user["_id"] else match["user1_id"]
-        other_user = await db.users.find_one({"_id": ObjectId(other_user_id)})
-        
+        other_id = match["user2_id"] if match["user1_id"] == current_user["_id"] else match["user1_id"]
+        other_user = users_map.get(other_id)
         if other_user:
             other_user["_id"] = str(other_user["_id"])
-            other_user.pop("password_hash", None)
-            other_user["match_score"] = match["match_score"]
+            other_user["match_score"] = match_scores.get(other_id, 0)
             match_list.append(other_user)
     
     return {"matches": match_list}
@@ -386,10 +412,31 @@ async def get_conversations(current_user: dict = Depends(get_current_user)):
         "participants": current_user["_id"]
     }).sort("updated_at", -1).to_list(100)
     
+    if not conversations:
+        return {"conversations": []}
+    
+    # Batch fetch all other users
+    other_user_ids = []
+    for conv in conversations:
+        other_id = [p for p in conv["participants"] if p != current_user["_id"]][0]
+        other_user_ids.append(ObjectId(other_id))
+    
+    users_cursor = db.users.find({"_id": {"$in": other_user_ids}}, {"name": 1, "photo": 1, "age": 1})
+    users_map = {str(u["_id"]): u async for u in users_cursor}
+    
+    # Batch fetch unread counts using aggregation
+    conv_ids = [str(conv["_id"]) for conv in conversations]
+    unread_pipeline = [
+        {"$match": {"conversation_id": {"$in": conv_ids}, "receiver_id": current_user["_id"], "read": False}},
+        {"$group": {"_id": "$conversation_id", "count": {"$sum": 1}}}
+    ]
+    unread_cursor = db.messages.aggregate(unread_pipeline)
+    unread_map = {doc["_id"]: doc["count"] async for doc in unread_cursor}
+    
     conv_list = []
     for conv in conversations:
-        other_user_id = [p for p in conv["participants"] if p != current_user["_id"]][0]
-        other_user = await db.users.find_one({"_id": ObjectId(other_user_id)})
+        other_id = [p for p in conv["participants"] if p != current_user["_id"]][0]
+        other_user = users_map.get(other_id)
         
         if other_user:
             conv["_id"] = str(conv["_id"])
@@ -399,15 +446,7 @@ async def get_conversations(current_user: dict = Depends(get_current_user)):
                 "photo": other_user.get("photo"),
                 "age": other_user.get("age")
             }
-            
-            # Get unread count
-            unread_count = await db.messages.count_documents({
-                "conversation_id": conv["_id"],
-                "receiver_id": current_user["_id"],
-                "read": False
-            })
-            conv["unread_count"] = unread_count
-            
+            conv["unread_count"] = unread_map.get(conv["_id"], 0)
             conv_list.append(conv)
     
     return {"conversations": conv_list}
