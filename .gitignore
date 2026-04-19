@@ -41,6 +41,7 @@ dist/
 
 # Expo / React Native
 .expo/
+.metro-cache/
 web-build/
 *.jks
 *.p8
