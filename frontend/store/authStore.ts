@@ -43,6 +43,7 @@ interface User {
   referral_code?: string;
   referred_by?: string;
   referral_count?: number;
+  email_verified?: boolean;
   verification_status?: string; // unverified, pending, verified
   verification_type?: string;
   subscription_plan?: string;
@@ -59,6 +60,9 @@ interface AuthState {
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateUser: (data: any) => Promise<void>;
+  sendOTP: (email: string) => Promise<void>;
+  verifyOTP: (email: string, otp: string) => Promise<void>;
+  detectLocation: () => Promise<{ city: string; country: string; country_code: string; detected: boolean }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -146,6 +150,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Update user error:', error);
       throw error;
+    }
+  },
+
+  sendOTP: async (email: string) => {
+    try {
+      await axios.post(`${BACKEND_URL}/api/auth/send-otp`, { email });
+    } catch (error: any) {
+      console.error('Send OTP error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  verifyOTP: async (email: string, otp: string) => {
+    try {
+      await axios.post(`${BACKEND_URL}/api/auth/verify-otp`, { email, otp });
+      // Reload user to get updated email_verified status
+      await get().loadUser();
+    } catch (error: any) {
+      console.error('Verify OTP error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  detectLocation: async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/auth/detect-location`);
+      return response.data;
+    } catch (error) {
+      console.error('Detect location error:', error);
+      return { city: '', country: '', country_code: '', detected: false };
     }
   },
 }));

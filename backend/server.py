@@ -19,7 +19,10 @@ import hashlib
 import hmac
 import string
 import razorpay
-from bot_engine import get_bot_profiles, get_bot_by_id, generate_bot_reply
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from bot_engine import get_bot_profiles, get_bot_by_id, generate_bot_reply, COUNTRY_AGENTS, generate_agent_greeting
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -192,11 +195,67 @@ class SubmitAnswerRequest(BaseModel):
 class GameRoomActionRequest(BaseModel):
     room_id: str
 
+# --- OTP / Email Verification Models ---
+class SendOTPRequest(BaseModel):
+    email: EmailStr
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
 # --- Helper: Generate unique referral code ---
 def _generate_referral_code(name: str) -> str:
     prefix = ''.join(c for c in name.upper() if c.isalpha())[:4]
     suffix = ''.join(stdlib_random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"{prefix}{suffix}"
+
+# --- Helper: Generate 6-digit OTP ---
+def _generate_otp() -> str:
+    return ''.join(stdlib_random.choices(string.digits, k=6))
+
+# --- Helper: Send OTP email ---
+async def _send_otp_email(email: str, otp: str):
+    """Send OTP via SMTP. Falls back silently if SMTP not configured."""
+    smtp_host = os.environ.get("SMTP_HOST", "")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("SMTP_FROM", smtp_user)
+
+    if not smtp_host or not smtp_user:
+        logger.info(f"SMTP not configured. OTP for {email}: {otp}")
+        return  # Log OTP for dev/testing
+
+    msg = MIMEMultipart()
+    msg["From"] = from_email
+    msg["To"] = email
+    msg["Subject"] = "MeeturMate - Your Verification Code"
+    body = f"""
+    <html><body style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:20px;">
+    <div style="text-align:center;margin-bottom:24px;">
+        <h1 style="color:#FF5F6D;margin:0;">MeeturMate</h1>
+        <p style="color:#666;">Swipe. Match. Connect.</p>
+    </div>
+    <div style="background:#f9f9f9;border-radius:12px;padding:24px;text-align:center;">
+        <p style="color:#333;font-size:16px;">Your verification code is:</p>
+        <h2 style="color:#FF5F6D;font-size:36px;letter-spacing:8px;margin:16px 0;">{otp}</h2>
+        <p style="color:#999;font-size:13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
+    </div>
+    </body></html>
+    """
+    msg.attach(MIMEText(body, "html"))
+
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _smtp_send(smtp_host, smtp_port, smtp_user, smtp_pass, from_email, email, msg))
+    except Exception as e:
+        logger.error(f"Failed to send OTP email to {email}: {e}")
+
+def _smtp_send(host, port, user, password, from_addr, to_addr, msg):
+    with smtplib.SMTP(host, port) as server:
+        server.starttls()
+        server.login(user, password)
+        server.sendmail(from_addr, to_addr, msg.as_string())
 
 # --- Helper: Check verification for access control ---
 def require_verified(current_user: dict, feature: str = "this feature"):
@@ -239,6 +298,8 @@ async def register(user_data: UserRegister):
     user_dict["verification_status"] = "unverified"  # unverified, pending, verified
     user_dict["verification_type"] = None
     user_dict["verification_submitted_at"] = None
+    user_dict["email_verified"] = False
+    user_dict["email_verified"] = False
     user_dict["privacy_settings"] = {
         "blur_photo": False,
         "hide_online_status": False,
@@ -259,9 +320,64 @@ async def register(user_data: UserRegister):
     }
     
     result = await db.users.insert_one(user_dict)
-    
+    user_id = str(result.inserted_id)
+
+    # --- Proactive country agent greeting ---
+    # Find the opposite-gender agent for the user's country/location
+    try:
+        user_location = (user_dict.get("location") or "").lower()
+        user_gender = (user_dict.get("gender") or "").lower()
+        target_gender = "female" if user_gender == "male" else "male"
+
+        # Find matching country agent
+        matched_agent = None
+        for agent in COUNTRY_AGENTS:
+            country_lower = agent["country"].lower()
+            loc_lower = agent["location"].lower()
+            if (agent["gender"] == target_gender and
+                (country_lower in user_location or
+                 loc_lower in user_location or
+                 user_location in country_lower or
+                 agent["country_code"].lower() in user_location)):
+                matched_agent = agent
+                break
+
+        # Fallback: pick a random opposite-gender agent
+        if not matched_agent:
+            candidates = [a for a in COUNTRY_AGENTS if a["gender"] == target_gender]
+            if candidates:
+                matched_agent = stdlib_random.choice(candidates)
+
+        if matched_agent:
+            # Find or get the agent's DB user ID
+            agent_user = await db.users.find_one({"bot_id": matched_agent["bot_id"]})
+            if agent_user:
+                greeting = await generate_agent_greeting(
+                    matched_agent,
+                    user_dict.get("name", "there"),
+                    user_gender,
+                )
+                # Create the conversation and first message
+                conversation = {
+                    "participants": [str(agent_user["_id"]), user_id],
+                    "created_at": datetime.utcnow(),
+                    "last_message_at": datetime.utcnow(),
+                    "is_bot_conversation": True,
+                }
+                conv_result = await db.conversations.insert_one(conversation)
+                await db.messages.insert_one({
+                    "conversation_id": str(conv_result.inserted_id),
+                    "sender_id": str(agent_user["_id"]),
+                    "content": greeting,
+                    "timestamp": datetime.utcnow(),
+                    "read": False,
+                })
+                logger.info(f"Country agent {matched_agent['name']} sent greeting to new user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to send agent greeting: {e}")
+
     # Create token
-    access_token = create_access_token(data={"sub": str(result.inserted_id)})
+    access_token = create_access_token(data={"sub": user_id})
     
     return {
         "access_token": access_token,
@@ -282,6 +398,85 @@ async def login(user_data: UserLogin):
         "token_type": "bearer",
         "user_id": str(user["_id"])
     }
+
+# --- OTP / Email Verification Routes ---
+@api_router.post("/auth/send-otp")
+async def send_otp(req: SendOTPRequest):
+    """Send a 6-digit OTP to the given email address."""
+    otp = _generate_otp()
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+    # Upsert: one active OTP per email
+    await db.otp_codes.update_one(
+        {"email": req.email},
+        {"$set": {"otp": otp, "expires_at": expires_at, "attempts": 0, "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+
+    await _send_otp_email(req.email, otp)
+    return {"message": "OTP sent to your email", "expires_in_seconds": 600}
+
+@api_router.post("/auth/verify-otp")
+async def verify_otp(req: VerifyOTPRequest):
+    """Verify an OTP for the given email."""
+    record = await db.otp_codes.find_one({"email": req.email})
+    if not record:
+        raise HTTPException(status_code=400, detail="No OTP found. Request a new one.")
+
+    # Rate-limit: max 5 attempts
+    if record.get("attempts", 0) >= 5:
+        await db.otp_codes.delete_one({"email": req.email})
+        raise HTTPException(status_code=429, detail="Too many attempts. Request a new OTP.")
+
+    await db.otp_codes.update_one({"email": req.email}, {"$inc": {"attempts": 1}})
+
+    if record["expires_at"] < datetime.utcnow():
+        await db.otp_codes.delete_one({"email": req.email})
+        raise HTTPException(status_code=400, detail="OTP expired. Request a new one.")
+
+    if record["otp"] != req.otp.strip():
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    # Mark email as verified on the user
+    await db.users.update_one(
+        {"email": req.email},
+        {"$set": {"email_verified": True}}
+    )
+    await db.otp_codes.delete_one({"email": req.email})
+
+    return {"message": "Email verified successfully", "email_verified": True}
+
+# --- Location auto-detect (IP-based) ---
+@api_router.get("/auth/detect-location")
+async def detect_location(request: Request):
+    """Return approximate location from request IP using ip-api.com (free, no key)."""
+    import httpx
+    # Get real IP from X-Forwarded-For or client
+    forwarded = request.headers.get("x-forwarded-for")
+    client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "")
+    # Skip local IPs
+    if client_ip in ("127.0.0.1", "::1", "localhost", "") or client_ip.startswith("192.168.") or client_ip.startswith("10."):
+        return {"city": "", "country": "", "country_code": "", "detected": False}
+    try:
+        async with httpx.AsyncClient(timeout=5) as client_h:
+            resp = await client_h.get(f"http://ip-api.com/json/{client_ip}?fields=city,country,countryCode,lat,lon")
+            data = resp.json()
+            return {
+                "city": data.get("city", ""),
+                "country": data.get("country", ""),
+                "country_code": data.get("countryCode", ""),
+                "lat": data.get("lat"),
+                "lon": data.get("lon"),
+                "detected": True,
+            }
+    except Exception:
+        return {"city": "", "country": "", "country_code": "", "detected": False}
+
+# --- Country AI Agents endpoint ---
+@api_router.get("/agents/country-agents")
+async def get_country_agents():
+    """Return all country-based AI chat agents."""
+    return {"agents": COUNTRY_AGENTS}
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
@@ -1543,7 +1738,8 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def seed_bot_profiles():
-    """Seed bot profiles into the users collection on every startup (idempotent)."""
+    """Seed bot profiles and country agents into the users collection on every startup (idempotent)."""
+    # Seed original bot profiles
     for bot in get_bot_profiles():
         existing = await db.users.find_one({"bot_id": bot["bot_id"]})
         if not existing:
@@ -1611,6 +1807,72 @@ async def seed_bot_profiles():
                         "disappearing_messages": False,
                         "read_receipts": True,
                     },
+                }},
+            )
+
+    # Seed country AI agents
+    for agent in COUNTRY_AGENTS:
+        existing = await db.users.find_one({"bot_id": agent["bot_id"]})
+        if not existing:
+            user_doc = {
+                "bot_id": agent["bot_id"],
+                "name": agent["name"],
+                "age": agent["age"],
+                "gender": agent["gender"],
+                "bio": agent["bio"],
+                "location": agent["location"],
+                "photo": agent["photo"],
+                "is_bot": True,
+                "is_country_agent": True,
+                "country": agent["country"],
+                "country_code": agent["country_code"],
+                "is_premium": True,
+                "is_verified": True,
+                "email": f"{agent['bot_id']}@meeturmate.bot",
+                "password_hash": "",
+                "created_at": datetime.utcnow(),
+                "last_active": datetime.utcnow(),
+                "questionnaire_completed": True,
+                "active_conversations": [],
+                "free_chat_count": 0,
+                "orientation": "straight",
+                "connection_types": ["dating", "friendship", "emotional"],
+                "interests": agent.get("interests", ["travel", "music", "food"]),
+                "privacy_settings": {
+                    "blur_photo": False,
+                    "hide_online_status": False,
+                    "anonymous_browsing": False,
+                    "disappearing_messages": False,
+                    "read_receipts": True,
+                },
+                "preferences": {
+                    "gender_preference": ["male", "female", "other"],
+                    "age_range": [18, 100],
+                    "location_preference": None,
+                },
+            }
+            result = await db.users.insert_one(user_doc)
+            await db.questionnaires.insert_one({
+                "user_id": str(result.inserted_id),
+                "responses": agent.get("questionnaire_responses", {}),
+                "completed_at": datetime.utcnow(),
+            })
+            logger.info(f"Seeded country agent: {agent['name']} ({agent['country']}) (id={result.inserted_id})")
+        else:
+            await db.users.update_one(
+                {"bot_id": agent["bot_id"]},
+                {"$set": {
+                    "name": agent["name"],
+                    "age": agent["age"],
+                    "bio": agent["bio"],
+                    "location": agent["location"],
+                    "photo": agent["photo"],
+                    "is_bot": True,
+                    "is_country_agent": True,
+                    "country": agent["country"],
+                    "country_code": agent["country_code"],
+                    "is_verified": True,
+                    "last_active": datetime.utcnow(),
                 }},
             )
 

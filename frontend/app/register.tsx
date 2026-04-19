@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert, Dimensions, Animated,
@@ -36,7 +36,7 @@ const CONNECTION_OPTIONS = [
 export default function Register() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { register } = useAuthStore();
+  const { register, sendOTP, detectLocation } = useAuthStore();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     email: '', password: '', name: '', age: '', gender: 'female', bio: '', location: '',
@@ -83,9 +83,20 @@ export default function Register() {
         orientation: form.orientation,
         connection_types: form.connection_types,
       });
-      router.replace('/questionnaire');
+      // Send OTP for email verification
+      try {
+        await sendOTP(form.email);
+      } catch (_) {
+        // OTP send failure is non-blocking
+      }
+      router.replace({ pathname: '/verify-email', params: { email: form.email } });
     } catch (error: any) {
-      Alert.alert('Registration Failed', error.response?.data?.detail || 'Please try again');
+      const msg = error.response?.data?.detail || 'Please try again';
+      if (Platform.OS === 'web') {
+        alert('Registration Failed: ' + msg);
+      } else {
+        Alert.alert('Registration Failed', msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -98,6 +109,26 @@ export default function Register() {
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Let's get started</Text>
       <Text style={styles.stepSub}>Create your account</Text>
+
+      {/* Social Login Buttons */}
+      <TouchableOpacity style={[styles.socialBtn, { backgroundColor: '#DB4437' }]} activeOpacity={0.8}>
+        <Ionicons name="logo-google" size={20} color="#fff" />
+        <Text style={styles.socialBtnText}>Continue with Google</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.socialBtn, { backgroundColor: '#0078D4' }]} activeOpacity={0.8}>
+        <Ionicons name="logo-microsoft" size={20} color="#fff" />
+        <Text style={styles.socialBtnText}>Continue with Microsoft</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.socialBtn, { backgroundColor: '#1877F2' }]} activeOpacity={0.8}>
+        <Ionicons name="logo-facebook" size={20} color="#fff" />
+        <Text style={styles.socialBtnText}>Continue with Facebook</Text>
+      </TouchableOpacity>
+
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or use email</Text>
+        <View style={styles.dividerLine} />
+      </View>
 
       <View style={styles.inputWrap}>
         <Ionicons name="person-outline" size={20} color="#999" style={styles.ico} />
@@ -142,6 +173,24 @@ export default function Register() {
     </View>
   );
 
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Auto-detect location when step 2 is reached
+  useEffect(() => {
+    if (step === 2 && !form.location) {
+      (async () => {
+        setDetectingLocation(true);
+        try {
+          const loc = await detectLocation();
+          if (loc.detected && loc.city) {
+            setForm((f) => ({ ...f, location: `${loc.city}, ${loc.country}` }));
+          }
+        } catch (_) {}
+        setDetectingLocation(false);
+      })();
+    }
+  }, [step]);
+
   const renderStep2 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Where are you?</Text>
@@ -149,8 +198,11 @@ export default function Register() {
 
       <View style={styles.inputWrap}>
         <Ionicons name="location-outline" size={20} color="#999" style={styles.ico} />
-        <TextInput testID="register-location" style={styles.input} placeholder="City, Country" placeholderTextColor="#666" value={form.location} onChangeText={(t) => update('location', t)} />
+        <TextInput testID="register-location" style={styles.input} placeholder={detectingLocation ? 'Detecting your location...' : 'City, Country'} placeholderTextColor="#666" value={form.location} onChangeText={(t) => update('location', t)} />
       </View>
+      {detectingLocation && (
+        <Text style={styles.detectingText}>📍 Auto-detecting your location...</Text>
+      )}
     </View>
   );
 
@@ -332,4 +384,16 @@ const styles = StyleSheet.create({
   connectionLabel: { fontSize: 16, fontWeight: '600', color: isWeb ? '#1C1E21' : '#FDFDFD' },
   connectionLabelActive: { color: isWeb ? '#1877F2' : '#FF5F6D' },
   connectionDesc: { fontSize: 13, color: isWeb ? '#65676B' : '#636370', marginTop: 2 },
+
+  socialBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    height: 48, borderRadius: 12, gap: 10, marginBottom: 10,
+  },
+  socialBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  dividerRow: {
+    flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: isWeb ? '#CED0D4' : '#2A2A35' },
+  dividerText: { fontSize: 13, color: isWeb ? '#65676B' : '#636370' },
+  detectingText: { fontSize: 13, color: isWeb ? '#1877F2' : '#A259FF', marginTop: 4 },
 });

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert, Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
@@ -98,6 +99,24 @@ export default function Login() {
         <View style={styles.dividerLine} />
       </View>
 
+      {/* Social Login Buttons */}
+      <TouchableOpacity style={[styles.socialBtn, { backgroundColor: isWeb ? '#DB4437' : '#DB443722' }]} activeOpacity={0.85}>
+        <Ionicons name="logo-google" size={20} color={isWeb ? '#fff' : '#DB4437'} />
+        <Text style={[styles.socialBtnText, { color: isWeb ? '#fff' : '#DB4437' }]}>Continue with Google</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.socialBtn, { backgroundColor: isWeb ? '#0078D4' : '#0078D422' }]} activeOpacity={0.85}>
+        <Ionicons name="logo-microsoft" size={20} color={isWeb ? '#fff' : '#0078D4'} />
+        <Text style={[styles.socialBtnText, { color: isWeb ? '#fff' : '#0078D4' }]}>Continue with Microsoft</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.socialBtn, { backgroundColor: isWeb ? '#1877F2' : '#1877F222' }]} activeOpacity={0.85}>
+        <Ionicons name="logo-facebook" size={20} color={isWeb ? '#fff' : '#1877F2'} />
+        <Text style={[styles.socialBtnText, { color: isWeb ? '#fff' : '#1877F2' }]}>Continue with Facebook</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 16 }} />
+
       <TouchableOpacity
         testID="go-to-register"
         style={styles.secondaryBtn}
@@ -111,55 +130,57 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      {isWeb && (
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <View style={styles.logoWrap}>
-            <Ionicons name="flame" size={48} color="#1877F2" />
-          </View>
-          <Text style={styles.brand}>MeeturMate</Text>
-          <Text style={styles.tagline}>Swipe. Match. Connect.</Text>
-        </View>
-      )}
-      <LinearGradient
-        colors={['#FF5F6D', '#FF8A5C', '#FFC371']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradientTop}
-      >
-        <View style={[styles.heroContent, { paddingTop: insets.top + 40 }]}>
-          <View style={styles.logoWrap}>
-            <Ionicons name="flame" size={48} color="#fff" />
-          </View>
-          <Text style={styles.brand}>MeeturMate</Text>
-          <Text style={styles.tagline}>Swipe. Match. Connect.</Text>
-        </View>
-      </LinearGradient>
-
       {isWeb ? (
-        <View style={styles.formContainer}>
-          {formContent}
-        </View>
-      ) : (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.formContainer}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView contentContainerStyle={styles.webScrollContent} showsVerticalScrollIndicator={false}>
+          <View style={{ alignItems: 'center', marginBottom: 24 }}>
+            <View style={styles.logoWrap}>
+              <Ionicons name="flame" size={48} color="#1877F2" />
+            </View>
+            <Text style={styles.brand}>MeeturMate</Text>
+            <Text style={styles.tagline}>Swipe. Match. Connect.</Text>
+          </View>
+          <View style={styles.formContainer}>
             {formContent}
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      ) : (
+        <>
+          <LinearGradient
+            colors={['#FF5F6D', '#FF8A5C', '#FFC371']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientTop}
+          >
+            <View style={[styles.heroContent, { paddingTop: insets.top + 40 }]}>
+              <View style={styles.logoWrap}>
+                <Ionicons name="flame" size={48} color="#fff" />
+              </View>
+              <Text style={styles.brand}>MeeturMate</Text>
+              <Text style={styles.tagline}>Swipe. Match. Connect.</Text>
+            </View>
+          </LinearGradient>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.formContainer}
+          >
+            <ScrollView
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {formContent}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: isWeb ? '#F0F2F5' : '#0D0D12', ...(isWeb ? { alignItems: 'center', justifyContent: 'center' } : {}) },
-  gradientTop: { paddingBottom: 50, ...(isWeb ? { display: 'none' } : {}) },
+  container: { flex: 1, backgroundColor: isWeb ? '#F0F2F5' : '#0D0D12' },
+  webScrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40, paddingHorizontal: 16 },
+  gradientTop: { paddingBottom: 50 },
   heroContent: { alignItems: 'center', paddingBottom: 40 },
   logoWrap: {
     width: 80, height: 80, borderRadius: 24,
@@ -168,8 +189,8 @@ const styles = StyleSheet.create({
   },
   brand: { fontSize: 32, fontWeight: '800', color: isWeb ? '#1877F2' : '#fff', letterSpacing: -0.5 },
   tagline: { fontSize: 16, color: isWeb ? '#65676B' : 'rgba(255,255,255,0.85)', marginTop: 6, fontWeight: '500' },
-  formContainer: { flex: isWeb ? 0 : 1, marginTop: isWeb ? 0 : -30, ...(isWeb ? { width: 420, maxWidth: '90%' } : {}) },
-  scroll: { flexGrow: isWeb ? 0 : 1 },
+  formContainer: { flex: isWeb ? 0 : 1, marginTop: isWeb ? 0 : -30, ...(isWeb ? { width: 420, maxWidth: '100%' } : {}) },
+  scroll: { flexGrow: 1 },
   formCard: {
     flex: isWeb ? 0 : 1,
     backgroundColor: isWeb ? '#FFFFFF' : '#0D0D12',
@@ -200,9 +221,14 @@ const styles = StyleSheet.create({
     ...(isWeb ? { backgroundColor: '#1877F2' } : {}),
   },
   primaryBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.3 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   dividerLine: { flex: 1, height: 1, backgroundColor: isWeb ? '#CED0D4' : '#2A2A35' },
   dividerText: { paddingHorizontal: 16, fontSize: 13, color: isWeb ? '#65676B' : '#636370', fontWeight: '600' },
+  socialBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    height: 48, borderRadius: 9999, marginBottom: 10,
+  },
+  socialBtnText: { fontSize: 15, fontWeight: '600' },
   secondaryBtn: {
     height: 56, borderRadius: 9999, alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: isWeb ? '#1877F2' : '#FF5F6D',
