@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -11,6 +13,7 @@ interface Question { id: string; question: string; type: 'single' | 'multiple'; 
 
 export default function Questionnaire() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { token } = useAuthStore();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responses, setResponses] = useState<Record<string, any>>({});
@@ -59,38 +62,85 @@ export default function Questionnaire() {
   const isLast = idx === questions.length - 1;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Progress Header */}
       <View style={styles.top}>
-        <Text style={styles.step}>QUESTION {idx + 1} OF {questions.length}</Text>
-        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
+        <View style={styles.topRow}>
+          <TouchableOpacity
+            testID="q-close"
+            style={styles.closeBtn}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="close" size={22} color="#A0A0AB" />
+          </TouchableOpacity>
+          <Text style={styles.step}>{idx + 1} / {questions.length}</Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <LinearGradient
+            colors={['#FF5F6D', '#FFC371']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressFill, { width: `${progress}%` }]}
+          />
+        </View>
       </View>
 
-      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.question}>{q.question}</Text>
         <Text style={styles.hint}>{q.type === 'multiple' ? 'Select all that apply' : 'Choose one'}</Text>
 
-        {q.options.map((opt) => (
-          <TouchableOpacity testID={`q-opt-${opt}`} key={opt} style={[styles.pill, sel(opt) && styles.pillActive]} onPress={() => pick(opt)} activeOpacity={0.7}>
-            <Text style={[styles.pillText, sel(opt) && styles.pillTextActive]}>{opt}</Text>
-            {sel(opt) && <Ionicons name="checkmark-circle" size={22} color="#FF5F6D" />}
-          </TouchableOpacity>
-        ))}
+        {q.options.map((opt) => {
+          const selected = sel(opt);
+          return (
+            <TouchableOpacity
+              testID={`q-opt-${opt}`}
+              key={opt}
+              style={[styles.pill, selected && styles.pillActive]}
+              onPress={() => pick(opt)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.pillText, selected && styles.pillTextActive]}>{opt}</Text>
+              {selected ? (
+                <View style={styles.checkCircle}>
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                </View>
+              ) : (
+                <View style={styles.uncheckCircle} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity testID="q-prev" style={[styles.navBtn, idx === 0 && { opacity: 0.3 }]} onPress={() => setIdx(Math.max(0, idx - 1))} disabled={idx === 0}>
-          <Ionicons name="arrow-back" size={22} color="#FDFDFD" />
-        </TouchableOpacity>
-
-        {isLast ? (
-          <TouchableOpacity testID="q-submit" style={[styles.submitBtn, submitting && { opacity: 0.5 }]} onPress={submit} disabled={submitting} activeOpacity={0.8}>
-            <Text style={styles.submitText}>{submitting ? 'Submitting...' : 'Complete'}</Text>
-            <Ionicons name="checkmark-circle" size={22} color="#FDFDFD" />
+      {/* Footer Navigation */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {idx > 0 ? (
+          <TouchableOpacity testID="q-prev" style={styles.navBtn} onPress={() => setIdx(idx - 1)}>
+            <Ionicons name="chevron-back" size={22} color="#FDFDFD" />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity testID="q-next" style={styles.nextBtn} onPress={() => setIdx(idx + 1)} activeOpacity={0.8}>
-            <Text style={styles.nextText}>Next</Text>
-            <Ionicons name="arrow-forward" size={22} color="#FDFDFD" />
+          <View style={{ width: 56 }} />
+        )}
+
+        {isLast ? (
+          <TouchableOpacity
+            testID="q-submit"
+            style={[styles.primaryBtn, submitting && { opacity: 0.5 }]}
+            onPress={submit}
+            disabled={submitting}
+            activeOpacity={0.8}
+          >
+            <LinearGradient colors={['#FF5F6D', '#FFC371']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryGradient}>
+              <Text style={styles.primaryText}>{submitting ? 'Submitting...' : 'Start Matching'}</Text>
+              <Ionicons name="heart" size={20} color="#fff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity testID="q-next" style={styles.primaryBtn} onPress={() => setIdx(idx + 1)} activeOpacity={0.8}>
+            <LinearGradient colors={['#FF5F6D', '#FFC371']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryGradient}>
+              <Text style={styles.primaryText}>Continue</Text>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
@@ -101,22 +151,48 @@ export default function Questionnaire() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D0D12' },
   center: { flex: 1, backgroundColor: '#0D0D12', justifyContent: 'center', alignItems: 'center' },
-  top: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
-  step: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: '#A0A0AB', marginBottom: 12 },
+
+  top: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1C1C24', alignItems: 'center', justifyContent: 'center',
+  },
+  step: { fontSize: 14, fontWeight: '700', color: '#A0A0AB' },
   progressTrack: { height: 4, backgroundColor: '#1C1C24', borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#FF5F6D', borderRadius: 2 },
+  progressFill: { height: '100%', borderRadius: 2 },
+
   body: { flex: 1 },
-  bodyContent: { padding: 24, gap: 12 },
-  question: { fontSize: 28, fontWeight: '700', color: '#FDFDFD', letterSpacing: -0.5, marginBottom: 4 },
+  bodyContent: { padding: 24, gap: 10, paddingTop: 8 },
+  question: { fontSize: 28, fontWeight: '800', color: '#FDFDFD', letterSpacing: -0.5, marginBottom: 4, lineHeight: 36 },
   hint: { fontSize: 14, color: '#636370', marginBottom: 16 },
-  pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1C1C24', paddingVertical: 18, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1.5, borderColor: '#32323D' },
-  pillActive: { borderColor: '#FF5F6D', backgroundColor: '#1C1420' },
+
+  pill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#1C1C24', paddingVertical: 18, paddingHorizontal: 20,
+    borderRadius: 16, borderWidth: 1.5, borderColor: '#2A2A35',
+  },
+  pillActive: { borderColor: '#FF5F6D', backgroundColor: '#FF5F6D10' },
   pillText: { fontSize: 16, color: '#A0A0AB', fontWeight: '500' },
   pillTextActive: { color: '#FDFDFD', fontWeight: '600' },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', padding: 24, gap: 16 },
-  navBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2A2A35', alignItems: 'center', justifyContent: 'center' },
-  nextBtn: { flex: 1, height: 56, borderRadius: 9999, backgroundColor: '#2A2A35', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  nextText: { fontSize: 16, fontWeight: '700', color: '#FDFDFD' },
-  submitBtn: { flex: 1, height: 56, borderRadius: 9999, backgroundColor: '#FF5F6D', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  submitText: { fontSize: 16, fontWeight: '700', color: '#FDFDFD' },
+  checkCircle: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#FF5F6D', alignItems: 'center', justifyContent: 'center',
+  },
+  uncheckCircle: {
+    width: 26, height: 26, borderRadius: 13,
+    borderWidth: 2, borderColor: '#3A3A45',
+  },
+
+  footer: { flexDirection: 'row', justifyContent: 'space-between', padding: 24, gap: 16, alignItems: 'center' },
+  navBtn: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#1C1C24', alignItems: 'center', justifyContent: 'center',
+  },
+  primaryBtn: { flex: 1, borderRadius: 9999, overflow: 'hidden' },
+  primaryGradient: {
+    height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: 9999,
+  },
+  primaryText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

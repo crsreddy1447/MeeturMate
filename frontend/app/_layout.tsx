@@ -18,6 +18,10 @@ export default function RootLayout() {
         <Stack.Screen name="questionnaire" />
         <Stack.Screen name="filters" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="chat/[id]" />
+        <Stack.Screen name="subscription" />
+        <Stack.Screen name="verification" />
+        <Stack.Screen name="referral" />
+        <Stack.Screen name="game-room/[id]" />
         <Stack.Screen name="(tabs)" />
       </Stack>
     </>

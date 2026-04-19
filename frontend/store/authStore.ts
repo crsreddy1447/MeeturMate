@@ -4,6 +4,20 @@ import axios from 'axios';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+interface SocialLinks {
+  whatsapp?: string;
+  facebook?: string;
+  linkedin?: string;
+}
+
+interface PrivacySettings {
+  blur_photo: boolean;
+  hide_online_status: boolean;
+  anonymous_browsing: boolean;
+  disappearing_messages: boolean;
+  read_receipts: boolean;
+}
+
 interface User {
   _id: string;
   email: string;
@@ -14,9 +28,24 @@ interface User {
   location?: string;
   photo?: string;
   is_premium: boolean;
+  is_verified: boolean;
   subscription_end: string;
   questionnaire_completed: boolean;
   preferences?: any;
+  social_links?: SocialLinks;
+  privacy_settings?: PrivacySettings;
+  orientation?: string;
+  connection_types?: string[];
+  interests?: string[];
+  last_active?: string;
+  super_likes_remaining?: number;
+  coins?: number;
+  referral_code?: string;
+  referred_by?: string;
+  referral_count?: number;
+  verification_status?: string; // unverified, pending, verified
+  verification_type?: string;
+  subscription_plan?: string;
 }
 
 interface AuthState {
