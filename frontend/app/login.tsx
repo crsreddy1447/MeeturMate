@@ -37,6 +37,78 @@ export default function Login() {
     }
   };
 
+  const formContent = (
+    <View style={styles.formCard}>
+      <Text style={styles.welcomeBack}>Welcome back</Text>
+
+      <View style={styles.inputWrap}>
+        <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
+        <TextInput
+          testID="login-email-input"
+          style={styles.input}
+          placeholder="Email address"
+          placeholderTextColor="#888"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+      </View>
+
+      <View style={styles.inputWrap}>
+        <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
+        <TextInput
+          testID="login-password-input"
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#888"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+        />
+        <TouchableOpacity testID="toggle-password" onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="#999" />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity style={styles.forgotWrap}>
+        <Text style={styles.forgotText}>Forgot password?</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        testID="login-submit-button"
+        style={[styles.primaryBtn, loading && styles.btnDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
+        activeOpacity={0.85}
+      >
+        <LinearGradient
+          colors={['#FF5F6D', '#FFC371']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientBtn}
+        >
+          <Text style={styles.primaryBtnText}>{loading ? 'Signing in...' : 'Log In'}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>OR</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <TouchableOpacity
+        testID="go-to-register"
+        style={styles.secondaryBtn}
+        onPress={() => router.push('/register')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.secondaryBtnText}>Create new account</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       {isWeb && (
@@ -63,86 +135,24 @@ export default function Login() {
         </View>
       </LinearGradient>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.formContainer}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      {isWeb ? (
+        <View style={styles.formContainer}>
+          {formContent}
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.formContainer}
         >
-          <View style={styles.formCard}>
-            <Text style={styles.welcomeBack}>Welcome back</Text>
-
-            <View style={styles.inputWrap}>
-              <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
-              <TextInput
-                testID="login-email-input"
-                style={styles.input}
-                placeholder="Email address"
-                placeholderTextColor="#888"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputWrap}>
-              <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-              <TextInput
-                testID="login-password-input"
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#888"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity testID="toggle-password" onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="#999" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={styles.forgotWrap}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              testID="login-submit-button"
-              style={[styles.primaryBtn, loading && styles.btnDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#FF5F6D', '#FFC371']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientBtn}
-              >
-                <Text style={styles.primaryBtnText}>{loading ? 'Signing in...' : 'Log In'}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity
-              testID="go-to-register"
-              style={styles.secondaryBtn}
-              onPress={() => router.push('/register')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.secondaryBtnText}>Create new account</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {formContent}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
     </View>
   );
 }

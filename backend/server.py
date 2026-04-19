@@ -186,8 +186,11 @@ class JoinGameRoomRequest(BaseModel):
 
 class SubmitAnswerRequest(BaseModel):
     room_id: str
-    question_id: str
+    question_id: str = ""
     answer: str
+
+class GameRoomActionRequest(BaseModel):
+    room_id: str
 
 # --- Helper: Generate unique referral code ---
 def _generate_referral_code(name: str) -> str:
@@ -1280,7 +1283,7 @@ async def create_game_room(req: CreateGameRoomRequest, current_user: dict = Depe
         "host_id": current_user["_id"],
         "players": [{
             "user_id": current_user["_id"],
-            "name": current_user.get("name", "Player"),
+            "username": current_user.get("name", "Player"),
             "photo": current_user.get("photo"),
             "score": 0,
             "joined_at": datetime.utcnow(),
@@ -1288,7 +1291,7 @@ async def create_game_room(req: CreateGameRoomRequest, current_user: dict = Depe
         "max_players": max_p,
         "status": "waiting",  # waiting, playing, finished
         "questions": selected,
-        "current_question": 0,
+        "current_question_index": 0,
         "answers": {},  # {question_id: {user_id: answer}}
         "created_at": datetime.utcnow(),
         "started_at": None,
@@ -1332,7 +1335,7 @@ async def join_game_room(req: JoinGameRoomRequest, current_user: dict = Depends(
     
     player = {
         "user_id": current_user["_id"],
-        "name": current_user.get("name", "Player"),
+        "username": current_user.get("name", "Player"),
         "photo": current_user.get("photo"),
         "score": 0,
         "joined_at": datetime.utcnow(),
@@ -1352,8 +1355,8 @@ async def join_game_room(req: JoinGameRoomRequest, current_user: dict = Depends(
     }
 
 @api_router.post("/games/start")
-async def start_game(room_id: str, current_user: dict = Depends(get_current_user)):
-    room = await db.game_rooms.find_one({"_id": ObjectId(room_id)})
+async def start_game(req: GameRoomActionRequest, current_user: dict = Depends(get_current_user)):
+    room = await db.game_rooms.find_one({"_id": ObjectId(req.room_id)})
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     
@@ -1368,7 +1371,11 @@ async def start_game(room_id: str, current_user: dict = Depends(get_current_user
         {"$set": {"status": "playing", "started_at": datetime.utcnow()}}
     )
     
-    return {"message": "Game started!", "first_question": room["questions"][0] if room["questions"] else None}
+    # Strip answers from questions before sending to players
+    first_q = None
+    if room["questions"]:
+        first_q = {k: v for k, v in room["questions"][0].items() if k != "answer"}
+    return {"message": "Game started!", "first_question": first_q}
 
 @api_router.post("/games/answer")
 async def submit_game_answer(req: SubmitAnswerRequest, current_user: dict = Depends(get_current_user)):
@@ -1379,18 +1386,30 @@ async def submit_game_answer(req: SubmitAnswerRequest, current_user: dict = Depe
     if room["status"] != "playing":
         raise HTTPException(status_code=400, detail="Game is not active")
     
+    # Determine question: use question_id if provided, else current_question_index
+    current_idx = room.get("current_question_index", 0)
+    if req.question_id:
+        question = next((q for q in room["questions"] if q["id"] == req.question_id), None)
+    else:
+        question = room["questions"][current_idx] if current_idx < len(room["questions"]) else None
+    
+    if not question:
+        raise HTTPException(status_code=400, detail="No active question")
+    
+    q_id = question["id"]
+    
     # Record answer
-    answer_key = f"answers.{req.question_id}.{current_user['_id']}"
+    answer_key = f"answers.{q_id}.{current_user['_id']}"
     await db.game_rooms.update_one(
         {"_id": room["_id"]},
         {"$set": {answer_key: req.answer}}
     )
     
     # Check if answer is correct (for trivia and emoji_guess)
-    question = next((q for q in room["questions"] if q["id"] == req.question_id), None)
     is_correct = False
-    if question and "answer" in question:
-        is_correct = req.answer == question["answer"]
+    correct_answer = question.get("answer")
+    if correct_answer:
+        is_correct = req.answer == correct_answer
         if is_correct:
             # Award points
             for i, p in enumerate(room["players"]):
@@ -1401,7 +1420,41 @@ async def submit_game_answer(req: SubmitAnswerRequest, current_user: dict = Depe
                     )
                     break
     
-    return {"correct": is_correct, "correct_answer": question.get("answer") if question else None}
+    # Check if all players answered, advance to next question
+    all_answered = True
+    room_fresh = await db.game_rooms.find_one({"_id": room["_id"]})
+    answers_for_q = room_fresh.get("answers", {}).get(q_id, {})
+    for p in room_fresh["players"]:
+        if p["user_id"] not in answers_for_q:
+            all_answered = False
+            break
+    
+    next_question = None
+    game_over = False
+    if all_answered:
+        next_idx = current_idx + 1
+        if next_idx >= len(room["questions"]):
+            # Game over
+            await db.game_rooms.update_one(
+                {"_id": room["_id"]},
+                {"$set": {"status": "finished", "finished_at": datetime.utcnow(), "current_question_index": next_idx}}
+            )
+            game_over = True
+        else:
+            await db.game_rooms.update_one(
+                {"_id": room["_id"]},
+                {"$set": {"current_question_index": next_idx}}
+            )
+            nq = room["questions"][next_idx]
+            next_question = {k: v for k, v in nq.items() if k != "answer"}
+    
+    return {
+        "correct": is_correct,
+        "correct_answer": correct_answer,
+        "all_answered": all_answered,
+        "next_question": next_question,
+        "game_over": game_over,
+    }
 
 @api_router.get("/games/room/{room_id}")
 async def get_game_room(room_id: str, current_user: dict = Depends(get_current_user)):
@@ -1410,6 +1463,9 @@ async def get_game_room(room_id: str, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Room not found")
     
     room["_id"] = str(room["_id"])
+    # Ensure current_question_index exists
+    if "current_question_index" not in room:
+        room["current_question_index"] = room.pop("current_question", 0)
     # Remove correct answers from questions if game is active
     if room["status"] == "playing":
         for q in room.get("questions", []):
@@ -1418,8 +1474,8 @@ async def get_game_room(room_id: str, current_user: dict = Depends(get_current_u
     return room
 
 @api_router.post("/games/end")
-async def end_game(room_id: str, current_user: dict = Depends(get_current_user)):
-    room = await db.game_rooms.find_one({"_id": ObjectId(room_id)})
+async def end_game(req: GameRoomActionRequest, current_user: dict = Depends(get_current_user)):
+    room = await db.game_rooms.find_one({"_id": ObjectId(req.room_id)})
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     
@@ -1441,8 +1497,8 @@ async def end_game(room_id: str, current_user: dict = Depends(get_current_user))
     
     return {
         "message": "Game finished!",
-        "leaderboard": [{"name": p["name"], "score": p["score"]} for p in players],
-        "winner": players[0]["name"] if players else None,
+        "leaderboard": [{"username": p.get("username", p.get("name", "Player")), "score": p["score"]} for p in players],
+        "winner": players[0].get("username", players[0].get("name", "Player")) if players else None,
     }
 
 @api_router.get("/games/active-rooms")

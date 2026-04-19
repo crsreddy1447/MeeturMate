@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -25,8 +26,9 @@ interface GameRoom {
   players: { user_id: string; username: string; score: number }[];
   status: string;
   current_question_index: number;
-  questions: { question: string; options?: string[]; correct_answer?: string }[];
+  questions: { id: string; question: string; options?: string[]; answer?: string }[];
   max_players: number;
+  answers?: Record<string, Record<string, string>>;
   results?: any;
 }
 
@@ -77,15 +79,17 @@ export default function GameRoom() {
   };
 
   const handleAnswer = async (answer: string) => {
-    if (answered || answering) return;
+    if (answered || answering || !currentQ) return;
     setSelectedAnswer(answer);
     setAnswering(true);
     try {
-      await axios.post(`${BACKEND_URL}/api/games/answer`, {
+      const res = await axios.post(`${BACKEND_URL}/api/games/answer`, {
         room_id: id,
+        question_id: currentQ.id || '',
         answer,
       }, { headers: { Authorization: `Bearer ${token}` } });
       setAnswered(true);
+      // Show feedback briefly, then refresh
       setTimeout(() => {
         setAnswered(false);
         setSelectedAnswer(null);
@@ -133,7 +137,25 @@ export default function GameRoom() {
 
         <LinearGradient colors={colors} style={styles.lobbyHero}>
           <Text style={styles.lobbyCode}>{room.room_code}</Text>
-          <Text style={styles.lobbyCodeLabel}>Share this code with friends</Text>
+          <Text style={styles.lobbyCodeLabel}>Share this code with your match!</Text>
+          <TouchableOpacity
+            style={styles.lobbyCopyBtn}
+            onPress={async () => {
+              try {
+                if (isWeb) {
+                  await navigator.clipboard.writeText(room.room_code);
+                } else {
+                  await Clipboard.setStringAsync(room.room_code);
+                }
+                const msg = 'Room code copied!';
+                Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Copied', msg);
+              } catch {}
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="copy" size={14} color="#fff" />
+            <Text style={styles.lobbyCopyText}>Copy Code</Text>
+          </TouchableOpacity>
         </LinearGradient>
 
         <View style={styles.section}>
@@ -273,8 +295,8 @@ export default function GameRoom() {
           <View style={styles.answersGrid}>
             {currentQ.options?.map((opt, idx) => {
               const isSelected = selectedAnswer === opt;
-              const isCorrect = answered && opt === currentQ.correct_answer;
-              const isWrong = answered && isSelected && opt !== currentQ.correct_answer;
+                  const isCorrect = answered && opt === currentQ.answer;
+                  const isWrong = answered && isSelected && opt !== currentQ.answer;
               return (
                 <TouchableOpacity
                   key={idx}
@@ -305,7 +327,7 @@ export default function GameRoom() {
 
           {answered && (
             <Text style={styles.feedbackText}>
-              {selectedAnswer === currentQ.correct_answer ? '🎉 Correct!' : `❌ Correct answer: ${currentQ.correct_answer}`}
+              {selectedAnswer === currentQ.answer ? '🎉 Correct!' : `❌ Correct answer: ${currentQ.answer}`}
             </Text>
           )}
         </View>
@@ -333,6 +355,11 @@ const styles = StyleSheet.create({
   },
   lobbyCode: { fontSize: 40, fontWeight: '900', color: '#fff', letterSpacing: 6 },
   lobbyCodeLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 8 },
+  lobbyCopyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 9999,
+  },
+  lobbyCopyText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
   section: { paddingHorizontal: 20, marginTop: 20 },
   sectionLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 1.2, color: '#636370', marginBottom: 12 },

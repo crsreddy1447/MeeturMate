@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -56,6 +57,8 @@ export default function Referral() {
     try {
       if (isWeb) {
         await navigator.clipboard.writeText(info.referral_code);
+      } else {
+        await Clipboard.setStringAsync(info.referral_code);
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

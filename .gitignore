@@ -1,12 +1,22 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Environment and secrets
+.env
+.env.*
+*.env
+credentials.json
+*token.json*
+*credentials.json*
+*.pem
+*.key
+.credentials
+
 # IDE and editors
 .idea/
 .vscode/
 
 # Dependencies
 node_modules/
-/node_modules
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -28,12 +38,16 @@ next-env.d.ts
 # Production builds
 /build
 dist/
-dist
 
-# Environment files (comprehensive coverage)
-
-*token.json*
-*credentials.json*
+# Expo / React Native
+.expo/
+web-build/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+ios/
+android/
 
 # Logs and debug files
 npm-debug.log*
@@ -44,25 +58,26 @@ dump.rdb
 
 # System files
 .DS_Store
-*.pem
+Thumbs.db
 
 # Python
 __pycache__/
-*pyc*
+*.pyc
+*.pyo
 venv/
 .venv/
+*.egg-info/
+
+# Docker
+docker-compose.override.yml
 
 # Development tools
 chainlit.md
 .chainlit
 .ipynb_checkpoints/
-.ac
 
 # Deployment
 .vercel
-
-# Data and databases
-agenthub/agents/youtube/db
 
 # Archive files and large assets
 **/*.zip
@@ -76,24 +91,6 @@ agenthub/agents/youtube/db
 # Build caches
 .cache/
 
+# Test artifacts
 memory/test_credentials.md
-
-# Mobile development
-android-sdk/-e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
+backend/test_flow.py
